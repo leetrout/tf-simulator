@@ -1,3 +1,4 @@
 *.gz
 internal/webserver/static/
 build/
+*.db
