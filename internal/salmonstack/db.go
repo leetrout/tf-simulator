@@ -1,7 +1,6 @@
 package salmonstack
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -20,7 +19,7 @@ func openSQLite() (*sql.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	if err := applyPragmas(context.Background(), db); err != nil {
+	if err := applyPragmas(db); err != nil {
 		return nil, fmt.Errorf("apply pragmas: %w", err)
 	}
 
@@ -28,8 +27,9 @@ func openSQLite() (*sql.DB, error) {
 }
 
 // Sets all required SQLite PRAGMAS
-func applyPragmas(ctx context.Context, db *sql.DB) error {
+func applyPragmas(db *sql.DB) error {
 	pragmas := []string{
+		"PRAGMA foreign_keys = ON;",
 		"PRAGMA strict = ON;",
 		"PRAGMA journal_mode = WAL;",
 		"PRAGMA synchronous = NORMAL;",
@@ -40,7 +40,7 @@ func applyPragmas(ctx context.Context, db *sql.DB) error {
 	}
 
 	for _, p := range pragmas {
-		if _, err := db.ExecContext(ctx, p); err != nil {
+		if _, err := db.Exec(p); err != nil {
 			return fmt.Errorf("apply %q: %w", p, err)
 		}
 	}

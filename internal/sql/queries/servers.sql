@@ -6,5 +6,5 @@ WHERE id = ? LIMIT 1;
 SELECT * FROM servers;
 
 -- name: CreateServer :one
-INSERT INTO servers (name) VALUES (?)
+INSERT INTO servers (name, subnet_id, static_ip_id) VALUES (?, ?, ?)
 RETURNING *;

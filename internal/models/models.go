@@ -4,7 +4,54 @@
 
 package models
 
-type Server struct {
+import (
+	"database/sql"
+)
+
+type Bucket struct {
 	ID   int64
 	Name string
+}
+
+type Database struct {
+	ID       int64
+	Name     string
+	SubnetID int64
+}
+
+type DomainName struct {
+	ID         int64
+	Name       string
+	StaticIpID sql.NullInt64
+}
+
+type LoadBalancer struct {
+	ID         int64
+	Name       string
+	SubnetID   int64
+	StaticIpID sql.NullInt64
+}
+
+type Network struct {
+	ID   int64
+	Name string
+}
+
+type Server struct {
+	ID         int64
+	Name       string
+	SubnetID   int64
+	StaticIpID sql.NullInt64
+}
+
+type StaticIp struct {
+	ID        int64
+	Name      string
+	IpAddress string
+}
+
+type Subnet struct {
+	ID        int64
+	Name      string
+	NetworkID int64
 }

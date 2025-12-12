@@ -4,9 +4,10 @@ go = "1.25.5"
 golangci-lint = "2.7.2"
 
 [env]
+LOG_LEVEL = "DEBUG"
+
 DATABASE_URL = "data/salmonstack.db"
 
-# goose stuff
 GOOSE_DRIVER = "sqlite3"
 GOOSE_DBSTRING = "{{env.DATABASE_URL}}"
-GOOSE_MIGRATION_DIR = "data/sql/migrations"
+GOOSE_MIGRATION_DIR = "internal/sql/migrations"

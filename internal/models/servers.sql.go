@@ -7,34 +7,51 @@ package models
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createServer = `-- name: CreateServer :one
-INSERT INTO servers (name) VALUES (?)
-RETURNING id, name
+INSERT INTO servers (name, subnet_id, static_ip_id) VALUES (?, ?, ?)
+RETURNING id, name, subnet_id, static_ip_id
 `
 
-func (q *Queries) CreateServer(ctx context.Context, name string) (Server, error) {
-	row := q.db.QueryRowContext(ctx, createServer, name)
+type CreateServerParams struct {
+	Name       string
+	SubnetID   int64
+	StaticIpID sql.NullInt64
+}
+
+func (q *Queries) CreateServer(ctx context.Context, arg CreateServerParams) (Server, error) {
+	row := q.db.QueryRowContext(ctx, createServer, arg.Name, arg.SubnetID, arg.StaticIpID)
 	var i Server
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.SubnetID,
+		&i.StaticIpID,
+	)
 	return i, err
 }
 
 const getServer = `-- name: GetServer :one
-SELECT id, name FROM servers
+SELECT id, name, subnet_id, static_ip_id FROM servers
 WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetServer(ctx context.Context, id int64) (Server, error) {
 	row := q.db.QueryRowContext(ctx, getServer, id)
 	var i Server
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.SubnetID,
+		&i.StaticIpID,
+	)
 	return i, err
 }
 
 const listServers = `-- name: ListServers :many
-SELECT id, name FROM servers
+SELECT id, name, subnet_id, static_ip_id FROM servers
 `
 
 func (q *Queries) ListServers(ctx context.Context) ([]Server, error) {
@@ -46,7 +63,12 @@ func (q *Queries) ListServers(ctx context.Context) ([]Server, error) {
 	var items []Server
 	for rows.Next() {
 		var i Server
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.SubnetID,
+			&i.StaticIpID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
