@@ -1,30 +1,25 @@
 import adapter from '@sveltejs/adapter-static';
-import preprocess from 'svelte-preprocess';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 const isLocal = process.env.SK_LOCAL == 'development';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
-	// Consult https://github.com/sveltejs/svelte-preprocess
-	// for more information about preprocessors
-	preprocess: preprocess(),
+	preprocess: vitePreprocess(),
 
 	kit: {
 		adapter: adapter(),
 		paths: {
-			base: isLocal ? '' : '/static'
+			// Go serves the built assets under /static
+			base: isLocal ? '' : '/static',
+			// Emit absolute, base-prefixed asset URLs (e.g. /static/internal/...).
+			// The Go server serves index.html at "/" but assets only under
+			// "/static", so relative URLs would resolve to the wrong path.
+			relative: false
 		},
-		// Uses _app by default but Go will not serve
-		// directories with leading underscores so
-		// change the appDir when we publish
-		appDir: 'internal',
-		vite: {
-			server: {
-				proxy: {
-					'/api': 'http://localhost:9321'
-				}
-			}
-		}
+		// SvelteKit uses _app by default but Go (embed.FS) will not serve
+		// directories with leading underscores, so use a plain dir name.
+		appDir: 'internal'
 	}
 };
 

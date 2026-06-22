@@ -1,3 +1,45 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@plugin 'daisyui' {
+	themes: false;
+}
+
+/* statesim — dark theme tuned to the mockups */
+@plugin 'daisyui/theme' {
+	name: 'statesim';
+	default: true;
+	prefersdark: true;
+	color-scheme: dark;
+
+	--color-base-100: #0c0e13;
+	--color-base-200: #12151c;
+	--color-base-300: #1a1e27;
+	--color-base-content: #c9d1dc;
+
+	--color-primary: #80c5f6;
+	--color-primary-content: #06121d;
+	--color-secondary: #8b93a7;
+	--color-secondary-content: #0c0e13;
+	--color-accent: #80c5f6;
+	--color-accent-content: #06121d;
+	--color-neutral: #1a1e27;
+	--color-neutral-content: #c9d1dc;
+
+	--color-info: #60a5fa;
+	--color-info-content: #06121d;
+	--color-success: #34d399;
+	--color-success-content: #04140d;
+	--color-warning: #fbbf24;
+	--color-warning-content: #1a1404;
+	--color-error: #f87171;
+	--color-error-content: #1a0606;
+
+	--radius-selector: 0.375rem;
+	--radius-field: 0.375rem;
+	--radius-box: 0.5rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
+}

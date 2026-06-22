@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { createForm } from 'felte';
 	import { validator } from '@felte/validator-yup';
-	import * as yup from 'yup';
-	import { browser } from '$app/env';
+	import { browser } from '$app/environment';
 
 	import { EntitySchema } from '$lib/resources';
 	import type { CreateEntity } from '$lib/resources';
@@ -37,12 +36,12 @@
 	});
 </script>
 
-<div class="border mb-8 p-4">
+<div class="mb-8 border p-4">
 	<form class="form" use:form on:submit|preventDefault>
 		<div class="mb-4">
-			<label class="block text-gray-700 text-sm font-bold mb-2" for="Name"> Entity Name </label>
+			<label class="mb-2 block text-sm font-bold text-gray-700" for="Name"> Entity Name </label>
 			<input
-				class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+				class="focus:shadow-outline w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none"
 				id="Name"
 				type="text"
 				name="Name"
@@ -54,11 +53,11 @@
 		</div>
 
 		<div class="mb-4">
-			<label class="block text-gray-700 text-sm font-bold mb-2" for="TurboEncabulationRate">
+			<label class="mb-2 block text-sm font-bold text-gray-700" for="TurboEncabulationRate">
 				Turbo Encabulation Rate
 			</label>
 			<input
-				class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+				class="focus:shadow-outline w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none"
 				id="TurboEncabulationRate"
 				type="number"
 				name="TurboEncabulationRate"
@@ -69,11 +68,11 @@
 			{/if}
 		</div>
 		<div class="mb-4">
-			<label class="block text-gray-700 text-sm font-bold mb-2" for="RefractionRate">
+			<label class="mb-2 block text-sm font-bold text-gray-700" for="RefractionRate">
 				Refraction Rate
 			</label>
 			<input
-				class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+				class="focus:shadow-outline w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none"
 				id="RefractionRate"
 				type="number"
 				name="RefractionRate"
@@ -84,7 +83,7 @@
 			{/if}
 		</div>
 		<button
-			class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+			class="focus:shadow-outline rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700 focus:outline-none"
 			type="submit"
 		>
 			Add Entity

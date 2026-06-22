@@ -1,13 +1,13 @@
-/// <reference types="@sveltejs/kit" />
-
-// See https://kit.svelte.dev/docs#typescript
+// See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
-// declare namespace App {
-// 	interface Locals {}
+declare global {
+	namespace App {
+		// interface Error {}
+		// interface Locals {}
+		// interface PageData {}
+		// interface PageState {}
+		// interface Platform {}
+	}
+}
 
-// 	interface Platform {}
-
-// 	interface Session {}
-
-// 	interface Stuff {}
-// }
+export {};

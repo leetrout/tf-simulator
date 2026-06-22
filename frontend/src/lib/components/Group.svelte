@@ -5,6 +5,6 @@
 
 <div class="">
 	<div>{group.Name}</div>
-	<div class="text-sm flex" />
+	<div class="flex text-sm"></div>
 	<div class="text-xs">{group.ID}</div>
 </div>
