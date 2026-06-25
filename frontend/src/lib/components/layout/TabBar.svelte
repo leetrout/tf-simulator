@@ -1,7 +1,21 @@
 <script lang="ts">
 	import { tabs, type TabId } from '$lib/sim/mock';
+	import { sim } from '$lib/stores/simulator.svelte';
+	import { statusMeta } from '$lib/sim/status';
 
 	let { active, onselect }: { active: TabId; onselect: (id: TabId) => void } = $props();
+
+	// Live badges: scenario count and problem count.
+	const badgeFor = (id: TabId): string | undefined => {
+		if (id === 'scenarios') return sim.scenarios.length ? String(sim.scenarios.length) : undefined;
+		if (id === 'sim') {
+			const p = sim.snapshot?.counts.problems ?? 0;
+			return p > 0 ? String(p) : undefined;
+		}
+		return undefined;
+	};
+
+	const loaded = $derived(sim.scenarios.find((s) => s.loaded));
 </script>
 
 <nav class="border-base-300 bg-base-100 flex items-center justify-between border-b px-4">
@@ -15,11 +29,11 @@
 				onclick={() => onselect(tab.id)}
 			>
 				{tab.label}
-				{#if tab.badge}
+				{#if badgeFor(tab.id)}
 					<span
 						class="bg-base-300 text-base-content/60 rounded px-1.5 py-0.5 text-[10px] leading-none"
 					>
-						{tab.badge}
+						{badgeFor(tab.id)}
 					</span>
 				{/if}
 			</button>
@@ -28,17 +42,29 @@
 
 	<div class="flex items-center gap-3 text-xs">
 		<span class="text-base-content/40 text-[10px] tracking-wide uppercase">Loaded</span>
+		{#if loaded}
+			<span
+				class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 {statusMeta(
+					loaded.status
+				).badge}"
+			>
+				<span class="h-1.5 w-1.5 rounded-full {statusMeta(loaded.status).dot}"></span>
+				{loaded.title}
+			</span>
+		{:else}
+			<span class="text-base-content/40 inline-flex items-center gap-1.5 px-2 py-1">
+				— none —
+			</span>
+		{/if}
 		<span
-			class="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-amber-400"
+			class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 {sim.connected
+				? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+				: 'border-base-300 text-base-content/40'}"
 		>
-			<span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-			Phantom in State
-		</span>
-		<span
-			class="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-400"
-		>
-			<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-			Simulation
+			<span
+				class="h-1.5 w-1.5 rounded-full {sim.connected ? 'bg-emerald-400' : 'bg-base-content/30'}"
+			></span>
+			{sim.connected ? 'Live' : 'Offline'}
 		</span>
 	</div>
 </nav>

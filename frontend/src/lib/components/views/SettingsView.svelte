@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { environmentSettings, simulatorSettings, type SettingRow } from '$lib/sim/mock';
+	import { sim } from '$lib/stores/simulator.svelte';
+	import type { SettingRow } from '$lib/sim/types';
 
-	const sections: { title: string; rows: SettingRow[] }[] = [
-		{ title: 'Environment', rows: environmentSettings },
-		{ title: 'Simulator', rows: simulatorSettings }
-	];
+	const sections = $derived<{ title: string; rows: SettingRow[] }[]>([
+		{ title: 'Environment', rows: sim.settings?.environment ?? [] },
+		{ title: 'Simulator', rows: sim.settings?.simulator ?? [] }
+	]);
 </script>
 
 <div class="mx-auto h-full max-w-3xl overflow-auto p-4">
@@ -21,10 +22,7 @@
 		>
 			i
 		</span>
-		<span>
-			These values are driven by the <span class="font-medium text-sky-400">Tweaks</span> panel — open
-			it to change them live.
-		</span>
+		<span>These values are read from the running simulator and are read-only for now.</span>
 	</div>
 
 	{#each sections as section (section.title)}
@@ -47,6 +45,7 @@
 								type="checkbox"
 								class="toggle toggle-primary toggle-sm"
 								checked={row.value === true}
+								disabled
 							/>
 						{:else if row.kind === 'color'}
 							<span

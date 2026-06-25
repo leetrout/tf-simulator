@@ -1,127 +1,156 @@
+// Package ws is the structured websocket event hub. The simulator broadcasts
+// JSON events (cloud.changed/state.changed/scenario.loaded/...) to every
+// connected client.
 package ws
 
 import (
-	"io"
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+// Event is the structured message broadcast to all websocket clients.
+type Event struct {
+	Type         string `json:"type"`                   // cloud.changed | state.changed | scenario.loaded | reset | hello
+	Scope        string `json:"scope"`                  // cloud | state | sim
+	ResourceType string `json:"resourceType,omitempty"` // e.g. nimbus_subnet
+	ID           string `json:"id,omitempty"`           // cloud id
+	Serial       int    `json:"serial,omitempty"`
+	Detail       string `json:"detail,omitempty"`
+	Timestamp    string `json:"timestamp"`
+}
+
+// Broadcast marshals and sends a structured event to all connected clients,
+// stamping the timestamp if unset.
+func Broadcast(ev Event) {
+	if SOCKEX == nil {
+		return
+	}
+	if ev.Timestamp == "" {
+		ev.Timestamp = time.Now().UTC().Format(time.RFC3339)
+	}
+	b, err := json.Marshal(ev)
+	if err != nil {
+		return
+	}
+	SOCKEX.send(b)
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// Init creates the global exchange if it does not already exist.
 func Init() {
-	// Initialize exchange if needed
 	if SOCKEX == nil {
 		SOCKEX = newSockEx()
-		SOCKEX.run()
 	}
 }
 
-// SocketHandler upgrades connections to a websocket
+// SocketHandler upgrades a connection and registers it with the exchange.
 func SocketHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-
-	// Initialize exchange if needed
-	if SOCKEX == nil {
-		SOCKEX = newSockEx()
-		SOCKEX.run()
-	}
-
-	SOCKEX.addConnection(conn)
+	Init()
+	SOCKEX.add(conn)
 }
 
-// SOCKEX is the global socket exchange instance
+// SOCKEX is the global socket exchange instance.
 var SOCKEX *socketExchange
 
-// socketExchange encapsulates the channels to coordinate websocket dispatching
+// client wraps a connection with a buffered outbound queue. A single writePump
+// goroutine drains the queue, so writes to one connection are never concurrent
+// (gorilla/websocket forbids that).
+type client struct {
+	conn *websocket.Conn
+	send chan []byte
+}
+
+// socketExchange tracks connected clients and fans messages out to them.
 type socketExchange struct {
-	x           sync.Mutex
-	lastID      int
-	connections map[int]*websocket.Conn
-	inbound     chan io.Reader
-	started     bool
+	mu      sync.Mutex
+	lastID  int
+	clients map[int]*client
 }
 
 func newSockEx() *socketExchange {
-	return &socketExchange{
-		inbound:     make(chan io.Reader),
-		connections: map[int]*websocket.Conn{},
+	return &socketExchange{clients: map[int]*client{}}
+}
+
+// add registers a new connection, starts its read/write pumps, and greets it.
+func (se *socketExchange) add(c *websocket.Conn) {
+	cl := &client{conn: c, send: make(chan []byte, 32)}
+	se.mu.Lock()
+	se.lastID++
+	id := se.lastID
+	se.clients[id] = cl
+	se.mu.Unlock()
+
+	go se.writePump(cl)
+	go se.readPump(id, cl)
+
+	hello, _ := json.Marshal(Event{Type: "hello", Scope: "sim", Timestamp: time.Now().UTC().Format(time.RFC3339)})
+	cl.enqueue(hello)
+}
+
+// send fans a message out to every client's queue (non-blocking; a client whose
+// queue is full is dropped from this message rather than stalling the broadcast).
+func (se *socketExchange) send(msg []byte) {
+	se.mu.Lock()
+	clients := make([]*client, 0, len(se.clients))
+	for _, cl := range se.clients {
+		clients = append(clients, cl)
+	}
+	se.mu.Unlock()
+	for _, cl := range clients {
+		cl.enqueue(msg)
 	}
 }
 
-func (se *socketExchange) run() {
-	// TODO
-	if !se.started {
-		se.started = true
-		se.start()
+func (cl *client) enqueue(msg []byte) {
+	defer func() { _ = recover() }() // tolerate send on a closed channel during teardown
+	select {
+	case cl.send <- msg:
+	default: // queue full: drop this message for this slow client
 	}
-}
-
-// addConnection stores the connection pointer and starts a NOOP readloop
-func (se *socketExchange) addConnection(c *websocket.Conn) {
-	se.x.Lock()
-	defer se.x.Unlock()
-	se.lastID += 1
-	se.connections[se.lastID] = c
-	go se.readloop(se.lastID, c)
-
-}
-
-func (se *socketExchange) Send(s string) {
-	se.x.Lock()
-	defer se.x.Unlock()
-	for _, conn := range se.connections {
-		go func(conn *websocket.Conn) {
-			// conn.NextReader()
-			w, err := conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write([]byte(s))
-			w.Close()
-		}(conn)
-	}
-}
-
-func (se *socketExchange) start() {
-	// ticker := time.NewTicker(2 * time.Second)
-	// go func() {
-	// 	for {
-	// 		<-ticker.C
-	// 		fmt.Println("=== SOCKEX STATE ===")
-	// 		fmt.Printf("%+v\n", se)
-	// 		if !se.started {
-	// 			ticker.Stop()
-	// 			return
-	// 		}
-	// 	}
-	// }()
 }
 
 func (se *socketExchange) remove(id int) {
-	se.x.Lock()
-	delete(se.connections, id)
-	se.x.Unlock()
+	se.mu.Lock()
+	cl, ok := se.clients[id]
+	if ok {
+		delete(se.clients, id)
+		close(cl.send)
+	}
+	se.mu.Unlock()
 }
 
-func (se *socketExchange) readloop(id int, c *websocket.Conn) {
+// writePump is the sole writer for a connection.
+func (se *socketExchange) writePump(cl *client) {
+	for msg := range cl.send {
+		if err := cl.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			return
+		}
+	}
+	_ = cl.conn.Close()
+}
+
+// readPump drains inbound frames (we don't act on them) and tears the client down
+// on disconnect.
+func (se *socketExchange) readPump(id int, cl *client) {
+	defer se.remove(id)
 	for {
-		_, _, err := c.NextReader()
-		if err != nil {
-			c.Close()
-			se.remove(id)
+		if _, _, err := cl.conn.NextReader(); err != nil {
+			_ = cl.conn.Close()
 			return
 		}
 	}

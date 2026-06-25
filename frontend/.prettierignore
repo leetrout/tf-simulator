@@ -1,0 +1,7 @@
+# Generated / vendored — do not enforce formatting
+build/
+.svelte-kit/
+node_modules/
+static/
+# Vendored jsongraph (built dist + a documented local patch)
+src/lib/jsongraph/

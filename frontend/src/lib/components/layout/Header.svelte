@@ -1,3 +1,22 @@
+<script lang="ts">
+	import { sim } from '$lib/stores/simulator.svelte';
+
+	const meta = $derived(sim.snapshot?.meta);
+	let copied = $state<string | null>(null);
+
+	// Plan/Apply/Refresh are teaching aids: the learner runs terraform in their own
+	// shell. The buttons copy the exact command; "Refresh" re-reads the dashboard.
+	async function copy(cmd: string) {
+		try {
+			await navigator.clipboard.writeText(cmd);
+			copied = cmd;
+			setTimeout(() => (copied === cmd ? (copied = null) : null), 1200);
+		} catch {
+			copied = null;
+		}
+	}
+</script>
+
 <header class="border-base-300 bg-base-200 flex items-center justify-between border-b px-4 py-2.5">
 	<div class="flex items-center gap-2.5">
 		<div
@@ -20,12 +39,16 @@
 			class="border-base-300 text-base-content/70 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1"
 		>
 			<span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
-			Nimbus Cloud
+			{meta?.provider ?? 'Nimbus Cloud'}
 		</span>
 		<span class="border-base-300 text-base-content/70 rounded-md border px-2.5 py-1 font-mono">
-			us-west-1
+			{meta?.region ?? 'us-west-1'}
 		</span>
-		<button class="btn btn-ghost btn-sm border-base-300 gap-1.5 font-normal">
+		<button
+			class="btn btn-ghost btn-sm border-base-300 gap-1.5 font-normal"
+			onclick={() => sim.refresh()}
+			title="Re-read the dashboard (does not run terraform)"
+		>
 			<svg
 				viewBox="0 0 24 24"
 				fill="none"
@@ -42,7 +65,19 @@
 			</svg>
 			Refresh
 		</button>
-		<button class="btn btn-ghost btn-sm border-base-300 font-normal">Plan</button>
-		<button class="btn btn-primary btn-sm font-normal">Apply</button>
+		<button
+			class="btn btn-ghost btn-sm border-base-300 font-normal"
+			onclick={() => copy('terraform plan')}
+			title="Copy — run it in your shell"
+		>
+			{copied === 'terraform plan' ? 'copied!' : 'Plan'}
+		</button>
+		<button
+			class="btn btn-primary btn-sm font-normal"
+			onclick={() => copy('terraform apply')}
+			title="Copy — run it in your shell"
+		>
+			{copied === 'terraform apply' ? 'copied!' : 'Apply'}
+		</button>
 	</div>
 </header>

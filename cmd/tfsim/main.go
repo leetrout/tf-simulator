@@ -1,80 +1,87 @@
+// Command tfsim runs the statesim server: the Nimbus fake-cloud API, the
+// simulator/observer API, the websocket event stream, and the embedded UI — all
+// from a single binary.
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"os"
+	"log"
+	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/leetrout/terraform-sim/internal/store"
+	"github.com/leetrout/terraform-sim/internal/cloud"
+	"github.com/leetrout/terraform-sim/internal/sim"
 	"github.com/leetrout/terraform-sim/internal/webserver"
 	"github.com/leetrout/terraform-sim/internal/ws"
 	"github.com/pkg/browser"
 )
 
-const defAddr = ":9321"
-
-var addrFlag = flag.String("addr", defAddr, "address for webserver to listen")
-var interactiveFlag = flag.Bool("i", false, "interactive mode (console)")
-
 func main() {
+	addrFlag := flag.String("addr", ":9321", "address for the web server to listen on")
+	workDirFlag := flag.String("work-dir", ".", "working directory watched for terraform.tfstate")
+	seedFlag := flag.String("seed", "demo", "demo|empty: seed the cloud on first run")
+	noOpenFlag := flag.Bool("no-open", false, "do not open a browser on startup")
 	flag.Parse()
 
-	addr := defAddr
-	if addrFlag != nil {
-		addr = *addrFlag
+	store := cloud.NewStore(cloud.DefaultStateFile)
+	if err := store.Load(); err != nil {
+		log.Fatalf("load cloud state: %v", err)
 	}
 
-	addrParts := strings.Split(addr, ":")
-	if len(addrParts) != 2 {
-		fmt.Fprint(os.Stderr, "addr in bad format, expected `<host>:<port>` or `:<port>`")
-		os.Exit(2)
-	}
-	if addrParts[0] == "" {
-		addrParts[0] = "localhost"
+	simulator := sim.New(store, *workDirFlag)
+
+	// Seed the demo topology only on a fresh cloud (so restarts preserve state)
+	// and only when the work dir has no Terraform config. A dir containing .tf
+	// files signals a real terraform workflow: seeding (which writes a demo
+	// terraform.tfstate) would collide with the user's own apply, so we skip it.
+	if *seedFlag == "demo" && len(store.All()) == 0 {
+		if hasTerraformConfig(*workDirFlag) {
+			fmt.Printf("+++ %s has .tf config — skipping demo seed (run terraform yourself; use --seed empty to silence)\n", *workDirFlag)
+		} else {
+			if err := simulator.SeedDemo(true); err != nil {
+				log.Fatalf("seed demo: %v", err)
+			}
+			fmt.Println("+++ seeded demo topology (cloud + terraform.tfstate)")
+		}
 	}
 
-	store.Initialize()
-	if *interactiveFlag == true {
-		go console()
+	ws.Init()
+	simulator.Start()
+	defer simulator.Stop()
+
+	mux := webserver.NewMux(store, simulator)
+
+	onListen := func(bound string) {
+		fmt.Printf("+++ statesim server listening at http://%s\n", browserHost(bound))
+		if !*noOpenFlag {
+			_ = browser.OpenURL("http://" + browserHost(bound))
+		}
 	}
 
-	timer := time.NewTimer(200 * time.Millisecond)
-	go func() {
-		<-timer.C
-		browser.OpenURL(fmt.Sprintf("http://%s:%s", addrParts[0], addrParts[1])) // FIXME
-	}()
-
-	fmt.Printf("+++ API server starting at %s\n", addr)
-	webserver.RunServer(addr)
+	if err := webserver.Serve(*addrFlag, mux, onListen); err != nil {
+		log.Fatalf("server: %v", err)
+	}
 }
 
-func console() {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("TerraSim")
-	fmt.Println("exit: Close the program")
-	fmt.Println("sock: Show websocket info")
-	fmt.Println("sock send <string>: Broadcast the string to all WS clients")
-	fmt.Println("---------------------")
-	for {
-		fmt.Print("-> ")
-		text, _ := reader.ReadString('\n')
-		// convert CRLF to LF
-		text = strings.ReplaceAll(text, "\n", "")
+// hasTerraformConfig reports whether dir contains any .tf files (i.e. the user
+// intends to drive terraform themselves).
+func hasTerraformConfig(dir string) bool {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.tf"))
+	return err == nil && len(matches) > 0
+}
 
-		if strings.Compare("sock", text) == 0 {
-			fmt.Printf("%+v\n", ws.SOCKEX)
+// browserHost turns a bound listener address (e.g. "[::]:9321" or ":9321") into a
+// host:port a browser can open.
+func browserHost(bound string) string {
+	host := bound
+	if i := strings.LastIndex(bound, ":"); i >= 0 {
+		port := bound[i+1:]
+		h := bound[:i]
+		if h == "" || h == "[::]" || h == "0.0.0.0" || h == "::" {
+			h = "localhost"
 		}
-
-		if strings.HasPrefix(text, "sock send") {
-			ws.SOCKEX.Send(strings.ReplaceAll(text, "sock send ", ""))
-		}
-
-		if strings.Compare("exit", text) == 0 {
-			os.Exit(0)
-		}
-
+		host = h + ":" + port
 	}
+	return host
 }

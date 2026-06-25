@@ -1,0 +1,6 @@
+# Terraform working files — not committed.
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+crash.log

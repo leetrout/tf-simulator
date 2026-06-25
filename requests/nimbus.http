@@ -1,0 +1,63 @@
+@base = http://localhost:9321
+
+### --- Simulator (observer) ---
+
+# Full joined view: cloud + state + per-resource status + counts + meta
+GET {{base}}/api/sim/snapshot
+
+###
+# Graph for the resource pane (jsongraph-shaped). view = cloud | state | (blank = union)
+GET {{base}}/api/sim/graph?view=
+
+###
+# Per-resource status + aggregate counts
+GET {{base}}/api/sim/status
+
+###
+GET {{base}}/api/sim/settings
+
+###
+GET {{base}}/api/sim/scenarios
+
+###
+# Manufacture a condition out-of-band, then run the suggested fix in your shell.
+# ids: in_sync | untracked | phantom | drift | moved
+POST {{base}}/api/sim/scenarios/phantom/load
+
+###
+# Re-seed the cloud (and demo state) to the known baseline.
+POST {{base}}/api/sim/reset
+
+
+### --- Nimbus fake cloud (REST) ---
+
+# List a collection: networks | subnets | network-interfaces | vm-instances | storage-buckets
+GET {{base}}/api/cloud/networks
+
+###
+# Create a network (id + serial are assigned by the server).
+POST {{base}}/api/cloud/networks
+Content-Type: application/json
+
+{ "name": "main", "cidr_block": "10.0.0.0/16", "region": "us-west-1" }
+
+###
+# Create a subnet — its network_id must reference an existing network (422 otherwise).
+POST {{base}}/api/cloud/subnets
+Content-Type: application/json
+
+{ "name": "public", "network_id": "net-001", "cidr_block": "10.0.1.0/24" }
+
+###
+GET {{base}}/api/cloud/subnets/subnet-002
+
+###
+# Partial update (drift injection).
+PATCH {{base}}/api/cloud/subnets/subnet-003
+Content-Type: application/json
+
+{ "cidr_block": "10.0.99.0/24" }
+
+###
+# Delete is non-cascading (makes a phantom easy to create).
+DELETE {{base}}/api/cloud/storage-buckets/bkt-007

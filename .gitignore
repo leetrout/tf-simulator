@@ -2,6 +2,10 @@
 *.gz
 internal/webserver/static/
 build/
+cmd/terraform-provider-nimbus/bin/
+
+# Local Go toolchain (sandbox workaround)
+.toolchain/
 
 # Go
 *.exe
